@@ -1,0 +1,57 @@
+function [root]=antinoise(data,k,ran)
+% The first slot is for your data to be processed
+% The second slot is k, the number of iterations of median filtering.
+%     k should be a possitive integer.
+%     However k would not affect with the intensity of our filtering.
+%     Higher k grants more refined filtering, and yet consumes more time to compute.
+% The third slot is for the range adjustment. 
+%     it should also be a possitive integer.
+%     Just make sure you double it when you zoom a 100-unit data into a 200-unit data.
+% Example: data=antinoise(data0,10,10)
+    ran=ceil(ran)*10;
+    l=length(data);
+    root=data;
+    differ0=[root(2)-root(1);root(3:l)-root(1:l-2);root(l)-root(l-1)];
+    differ=abs(differ0);
+    differ=max(differ,mean(differ)*ones(size(differ)));
+    for o1=1:k
+        temp=[differ(1)*ones(ran,1);differ;differ(l)*ones(ran,1)];
+        for o2=[1:ran,ran+2:2*ran+1]
+            density=power(ceil(abs(10*(o2-1-ran)/ran)),-2)/k;
+            temp(1:o2-1)=temp(1:o2-1)+differ(1)*ones(o2-1,1)*density;
+            temp(o2:l+o2-1)=temp(o2:l+o2-1)+differ*density;
+            temp(l+o2:l+2*ran)=temp(l+o2:l+2*ran)+differ(l)*ones(2*ran+1-o2,1)*density;
+        end
+        differ=temp(ran+1:l+ran)/(1+2*ran*sum(power([1:10],-2))/k/10);
+    end
+    clear temp
+    w=min(differ,mean(differ));
+    w=max(w)-w;
+    w=min(w,mean(w));
+    for o1=1:ceil(k)
+        temp=[w(1)*ones(ran,1);w;w(l)*ones(ran,1)];
+        for o2=[1:ran,ran+2:2*ran+1]
+            density=power(ceil(abs(10*(o2-1-ran)/ran)),-2)/k;
+            temp(1:o2-1)=temp(1:o2-1)+w(1)*ones(o2-1,1)*density;
+            temp(o2:l+o2-1)=temp(o2:l+o2-1)+w*density;
+            temp(l+o2:l+2*ran)=temp(l+o2:l+2*ran)+w(l)*ones(2*ran+1-o2,1)*density;
+        end
+        w=temp(ran+1:l+ran)/(1+2*ran*sum(power([1:10],-2))/k/10);
+    end
+%     w=power(w,2);
+    w=w-min(w);
+    w=w/max(w);
+    w=w*.98+.01;
+    %w直接作为root和data的加权系数
+    for o1=k
+        temp=[root(1)*ones(ran,1);root;root(l)*ones(ran,1)];
+        for o2=[1:ran,ran+2:2*ran+1]
+            density=power(ceil(abs(10*(o2-1-ran)/ran)),-2)/k;
+            temp(1:o2-1)=temp(1:o2-1)+root(1)*ones(o2-1,1)*density;
+            temp(o2:l+o2-1)=temp(o2:l+o2-1)+root*density;
+            temp(l+o2:l+2*ran)=temp(l+o2:l+2*ran)+root(l)*ones(2*ran+1-o2,1)*density;
+        end
+        root=temp(ran+1:l+ran)/(1+2*ran*sum(power([1:10],-2))/k/10);
+    end
+    root=root.*w+data.*(1-w);
+end
